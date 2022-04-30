@@ -1,0 +1,168 @@
+# -*-YAML-*-
+
+shell_command:
+  sprinkler: sh -c "echo {{cmd}} | nc -u -w1 SPRINKLER_HOST SPRINKLER_PORT"
+
+#define SPRINKLER_DAYS(_name)						      \
+  sprinkler_<<_name>>_sun:						      \
+  sprinkler_<<_name>>_mon:						      \
+  sprinkler_<<_name>>_tue:						      \
+  sprinkler_<<_name>>_wed:						      \
+  sprinkler_<<_name>>_thu:						      \
+  sprinkler_<<_name>>_fri:						      \
+  sprinkler_<<_name>>_sat:
+
+#define SPRINKLER_INPUT_BOOLS(_name)					      \
+  SPRINKLER_DAYS(<<_name>>)						      \
+  sprinkler_<<_name>>_disable:
+
+#define SPRINKLER_INPUT_DATETIMES(_name)				      \
+  sprinkler_<<_name>>_start_time:					      \
+    has_time: true
+
+input_boolean:
+  SPRINKLER_INPUT_BOOLS(rear_lawn)
+  SPRINKLER_INPUT_BOOLS(rear_planters)
+  SPRINKLER_INPUT_BOOLS(front_lawn)
+  SPRINKLER_INPUT_BOOLS(front_planters)
+
+input_datetime:
+  SPRINKLER_INPUT_DATETIMES(rear_lawn)
+  SPRINKLER_INPUT_DATETIMES(rear_planters)
+  SPRINKLER_INPUT_DATETIMES(front_lawn)
+  SPRINKLER_INPUT_DATETIMES(front_planters)
+
+#define ZONE_RUN_TIME(_zone)						      \
+  sprinkler_zone_<<_zone>>_run_time:					      \
+    min: 0								      \
+    max: 30								      \
+    unit_of_measurement: min
+
+input_number:
+  ZONE_RUN_TIME(0..11)
+  sprinkler_zone_running:
+    min: 0
+    max: 12
+
+#define START_MODE(_area, _a, _b, _c)					      \
+  sprinkler_<<_area>>_start_mode:					      \
+    options:								      \
+      - At Time								      \
+      - After <<_a>>							      \
+      - After <<_b>>							      \
+      - After <<_c>>
+
+input_select:
+  START_MODE(rear_lawn,      Rear Planters, Front Lawn,    Front Planters)
+  START_MODE(rear_planters,  Rear Lawn,     Front Lawn,    Front Planters)
+  START_MODE(front_lawn,     Rear Lawn,     Rear Planters, Front Planters)
+  START_MODE(front_planters, Rear Lawn,     Rear Planters, Front Lawn)
+
+input_text:
+  sprinkler_next_area_rear_lawn:
+  sprinkler_next_area_rear_planters:
+  sprinkler_next_area_front_lawn:
+  sprinkler_next_area_front_planters:
+
+#define DAY_COND(_area, _day)						      \
+  - >									      \
+    {{ states('sensor.template_weekday') == '<<_day>>' and		      \
+       is_state('input_boolean.sprinkler_<<_area>>_((lc substr '<<_day>>', 0, 3))', 'on') }}
+
+#define SPRINKLER_AUTOMATION(_area, _zones)				      \
+  - alias: sprinkler_<<_area>>						      \
+    trigger:								      \
+      - platform: template						      \
+        value_template: >						      \
+          {{ states('sensor.time') ==					      \
+             states('input_datetime.sprinkler_<<_area>>_start_time')[0:5] and \
+             is_state('input_select.sprinkler_<<_area>>_start_mode',	      \
+                      'At Time') }}					      \
+    condition:								      \
+      - "{{ is_state('input_boolean.sprinkler_<<_area>>_disable', 'off') }}"  \
+      - condition: or							      \
+        conditions:							      \
+          DAY_COND(<<_area>>, Sunday)					      \
+          DAY_COND(<<_area>>, Monday)					      \
+          DAY_COND(<<_area>>, Tuesday)					      \
+          DAY_COND(<<_area>>, Wednesday)				      \
+          DAY_COND(<<_area>>, Thursday)					      \
+          DAY_COND(<<_area>>, Friday)					      \
+          DAY_COND(<<_area>>, Saturday)					      \
+    action:								      \
+      - service: script.start_sprinkler_area				      \
+        data:								      \
+          area: <<_area>>						      \
+          zones: "{{ [ <<_zones>> ] }}"					      \
+      - choose:								      \
+        - conditions: "{{ not						      \
+                          is_state('input_text.sprinkler_next_area_<<_area>>',\
+                                   'none') }}"				      \
+          sequence:							      \
+            - service: automation.trigger				      \
+              data:							      \
+                entity_id: "{{'automation.sprinkler_' ~			      \
+                       states('input_text.sprinkler_next_area_<<_area>>')}}"  \
+                skip_condition: false					      \
+      - service: script.sprinkler_command				      \
+        data:								      \
+          cmd: "off"
+
+#define AREAS { 'rear_lawn': 'Rear Lawn',				     \\
+                'rear_planters': 'Rear Planters',			     \\
+                'front_lawn': 'Front Lawn',				     \\
+                'front_planters': 'Front Planters' }
+
+#define REAR_LAWN_ZONES         0, 1, 2, 3
+#define REAR_PLANTERS_ZONES     4, 5, 6, 7
+#define FRONT_LAWN_ZONES        8, 9
+#define FRONT_PLANTERS_ZONES    10, 11
+
+automation:
+  SPRINKLER_AUTOMATION(rear_lawn, REAR_LAWN_ZONES)
+  SPRINKLER_AUTOMATION(rear_planters, REAR_PLANTERS_ZONES)
+  SPRINKLER_AUTOMATION(front_lawn, FRONT_LAWN_ZONES)
+  SPRINKLER_AUTOMATION(front_planters, FRONT_PLANTERS_ZONES)
+
+script:
+  start_sprinkler_area:
+    sequence:
+      - repeat:
+          count: "{{ zones|length }}"
+          sequence:
+            - variables:
+                zone: "{{ zones[repeat.index - 1] }}"
+                run_time: "{{ states('input_number.sprinkler_zone_' ~ zone ~ \\
+                              '_run_time')|int}}"
+            - condition: "{{ run_time > 0 }}"
+            - service: script.sprinkler_command
+              data:
+                cmd: "{{zone}}"
+            - delay: "{{ '00:' ~ run_time ~ ':00' }}"
+//            - delay: "{{ '00:00:' ~ run_time }}"  // for testing
+      - service: input_text.set_value
+        target:
+          entity_id: "{{'input_text.sprinkler_next_area_' ~ area}}"
+        data:
+          value: >
+            {% set areas = AREAS %}
+            {% set after = areas[area] %}
+            {% set ns = namespace(next='none') %}
+            {% for k in areas.keys() if k != area %}
+              {% if ns.next == 'none' and
+                 is_state('input_select.sprinkler_' ~ k ~ '_start_mode',
+                          'After ' ~ after) %}
+                {% set ns.next = k %}
+              {% endif %}
+            {% endfor %}
+            {{ns.next}}
+  sprinkler_command:
+    sequence:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.sprinkler_zone_running
+        data:
+          value: "{{(cmd|int) + 1 if cmd != 'off' else 0 }}"
+      - service: shell_command.sprinkler
+        data:
+          cmd: "{{cmd}}"

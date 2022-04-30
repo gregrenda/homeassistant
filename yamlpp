@@ -1,0 +1,168 @@
+#!/usr/bin/perl -- # -*-Perl-*-
+
+use strict;
+
+my (%defs, $skip, $concat);
+
+while ($ARGV[0] =~ /^-D/)
+{
+    my ($name, $def) = split /=/, substr(shift, 2), 2;
+    $defs{$name} = $def;
+}
+
+while (<>)
+{
+    if (m/\\\\$/)    # multiline data to be concatenated into a single line
+    {
+	s/^\s+// if $concat;   # trim leading whitespace from continuation lines
+	s/\s*\\\\[\r\n]$//g;
+	$concat .= $_;
+	next;
+    }
+    elsif (defined $concat)
+    {
+	s/^\s+//;
+	$_ = "$concat $_";
+	undef $concat;
+    }
+
+    next if m%^\s*//%;		# remove comment lines beginning with //
+    s%\s*//.*$%%;		# strip trailing comments
+    s/[\r\n]+$//g;		# strip trailing cr/lf
+
+    if (/^#endif/)		# handle endif
+    {
+	$skip = 0;
+	next;
+    }
+
+    next if $skip;		# skip lines within #if 0
+
+    if (/^#define\s+/)		# defines
+    {
+	my ($name, $args) = /^#define\s+([^(\s]+)\(([^)]+)\)/;
+	# non-parameterized defines
+	($name) = /^#define\s+([^(\s]+)\s+/ unless $name;
+
+	# simple (non-multiline) defines
+	if (!/\\$/)
+	{
+	    # args not supported yet
+	    die "Error - simple macro arguments not supported at line $..\n" if
+		$args;
+	    $defs{$name} = (split /\s+/, $_, 3)[2];
+	    next;
+	}
+
+	# collect the arguments
+	my $i = 0;
+	$defs{$name}{args} = { map { $_=>$i++ } split /\s*,\s*/, $args } if
+	    $args;
+
+	# slurp up the lines of the macro
+	while (<>)
+	{
+	    next if m%^\s*//%;		# remove comment lines beginning with //
+	    s%\s*//.*$%%;		# strip trailing comments
+	    s/[\r\n]+$//g;		# strip trailing cr/lf
+
+	    my $more = /\\$/;
+	    s/\s*\\$//;
+	    push @{$defs{$name}{lines}}, $_;
+	    last unless $more;
+	}
+
+	# remove the indentation of the first line from all lines
+	my ($indent) = @{$defs{$name}{lines}}[0] =~ /^(\s+)/;
+	$_ =~ s/$indent// for @{$defs{$name}{lines}};
+	next;
+    }
+    elsif (/^#if\s+(.+)/)	# ifs
+    {
+	$skip = !$1;
+	next;
+    }
+    elsif (/^#(\w+)/)		# everything else
+    {
+	die "$0: Unrecognized # directive $1 at line $..\n";
+    }
+
+    print join("\n", doEval(expand($_))), "\n";
+}
+
+0;
+
+sub expandDefine
+{
+    my ($def, $indent, $args) = @_;
+    my @out;
+    my $d = $defs{$def};
+
+    die "Error - incorrect number of arguments in $def at line $..\n", if
+	@{$args} != keys %{$d->{args}};
+
+    for my $defLine (@{$d->{lines}})
+    {
+	my $l = $defLine;	# make a copy
+	$l =~ s/<<$_>>/$args->[$d->{args}{$_}]/g for keys %{$d->{args}};
+	push @out, expand("${indent}$l");
+    }
+
+    @out;
+}
+
+sub expand
+{
+    my $line = shift;
+
+    # force simple defs to be last so we can pass defines containing commas
+    # as arguments
+    for my $def (sort { ref $defs{$b} cmp ref $defs{$a} } keys %defs)
+    {
+	if (!ref $defs{$def})	# a simple define
+	{
+	    if ($line =~ /$def/)
+	    {
+		$line =~ s/$def/$defs{$def}/g;
+		return expand($line);
+	    }
+	}
+	# look for a complex define to replace
+	elsif ($line =~ /^(\s*)$def(\(([^)]+)\))?$/)
+	{
+	    my $indent = $1;
+	    my @args = split /\s*,\s*/, $3;
+
+	    # repeat define if single arg is of the form n..n
+	    if (@args == 1 and $args[0] =~ /^(\d+)\.\.(\d+)$/)
+	    {
+		my @out;
+		push @out, expandDefine($def, $indent, [ $_ ]) for $1..$2;
+		return @out;
+	    }
+	    else
+	    {
+		return expandDefine($def, $indent, \@args);
+	    }
+	}
+    }
+
+    ($line);
+}
+
+# evaluate ((...)) expressions
+sub doEval
+{
+    for (@_)
+    {
+	while (/(\(\((.+?)\)\))/)
+	{
+	    my $match = $1;
+	    my $expr = $2;
+	    last if $expr =~ /system|qx|`/;	# try to prevent evil evals
+	    s/\Q$match\E/$expr/ee;
+	    last;
+	}
+    }
+    @_;
+}
