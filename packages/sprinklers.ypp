@@ -63,6 +63,8 @@ input_text:
   sprinkler_next_area_rear_planters:
   sprinkler_next_area_front_lawn:
   sprinkler_next_area_front_planters:
+  sprinkler_zone_end_time:
+  sprinkler_area:
 
 #define DAY_COND(_area, _day)						      \
   - >									      \
@@ -126,7 +128,14 @@ automation:
 
 script:
   start_sprinkler_area:
+    variables:
+      areas: AREAS
     sequence:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.sprinkler_area
+        data:
+          value: "{{ areas[area] }}"
       - repeat:
           count: "{{ zones|length }}"
           sequence:
@@ -135,17 +144,21 @@ script:
                 run_time: "{{ states('input_number.sprinkler_zone_' ~ zone ~ \\
                               '_run_time')|int}}"
             - condition: "{{ run_time > 0 }}"
+            - service: input_text.set_value
+              target:
+                entity_id: input_text.sprinkler_zone_end_time
+              data:
+                value: "{{ now() + timedelta(minutes = run_time) }}"
             - service: script.sprinkler_command
               data:
                 cmd: "{{zone}}"
             - delay: "{{ '00:' ~ run_time ~ ':00' }}"
-//            - delay: "{{ '00:00:' ~ run_time }}"  // for testing
+//            - delay: "{{ '00:00:' ~ 1 }}"  // for testing
       - service: input_text.set_value
         target:
           entity_id: "{{'input_text.sprinkler_next_area_' ~ area}}"
         data:
           value: >
-            {% set areas = AREAS %}
             {% set after = areas[area] %}
             {% set ns = namespace(next='none') %}
             {% for k in areas.keys() if k != area %}
@@ -156,6 +169,14 @@ script:
               {% endif %}
             {% endfor %}
             {{ns.next}}
+  stop_sprinklers:
+    sequence:
+      - service: script.turn_off
+        data:
+          entity_id: script.start_sprinkler_area
+      - service: script.sprinkler_command
+        data:
+          cmd: "off"
   sprinkler_command:
     sequence:
       - service: input_number.set_value

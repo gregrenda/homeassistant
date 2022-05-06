@@ -1,1 +1,11 @@
 views: !include_dir_list dashboards
+
+button_card_templates:
+  common:
+    show_icon: false
+    styles:
+      card:
+        - border-radius: 10px
+  state:
+    template: common
+    color_type: card

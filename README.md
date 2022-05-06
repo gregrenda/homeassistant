@@ -49,7 +49,6 @@ macros.
 
 ### Todo
 
-- Add a way to stop or pause
 - Individual zone control
 
 ## License

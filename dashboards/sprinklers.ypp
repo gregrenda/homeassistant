@@ -1,25 +1,20 @@
 # -*-YAML-*-
 
-#define BUTTON_STYLE							      \
-  show_icon: false							      \
-  styles:								      \
-    card:								      \
-      - border-radius: 10px
-
 #define DAY(_name, _area)						      \
   - type: custom:button-card						      \
     name: <<_name>>							      \
     entity: input_boolean.sprinkler_<<_area>>_((lc '<<_name>>'))	      \
-    color_type: card							      \
-    BUTTON_STYLE
+    template: state
 
 #define NO_SHADOW							      \
     ha-card {								      \
       box-shadow: none;							      \
     }
 
-#define AREA(_title, _area, _zones)					      \
+#define AREA(_title, _area, _zones, _grid_area)				      \
   - type: entities							      \
+    view_layout:							      \
+      grid-area: <<_grid_area>>						      \
     entities:								      \
       - type: custom:layout-card					      \
         layout_type: vertical						      \
@@ -43,7 +38,7 @@
                   entity: input_datetime.sprinkler_<<_area>>_start_time	      \
                   name: Start Time					      \
                   show_state: true					      \
-                  BUTTON_STYLE						      \
+                  template: common					      \
                 restrictions:						      \
                   block:						      \
                     text: Start Mode not At Time			      \
@@ -55,7 +50,7 @@
                 entity: input_select.sprinkler_<<_area>>_start_mode	      \
                 name: Start Mode					      \
                 show_state: true					      \
-                BUTTON_STYLE						      \
+                template: common					      \
               - type: custom:button-card				      \
                 name: Run Now						      \
                 tap_action:						      \
@@ -63,12 +58,11 @@
                   service: automation.trigger				      \
                   service_data:						      \
                     entity_id: automation.sprinkler_<<_area>>		      \
-                BUTTON_STYLE						      \
+                template: common					      \
               - type: custom:button-card				      \
                 name: Disable						      \
                 entity: input_boolean.sprinkler_<<_area>>_disable	      \
-                color_type: card					      \
-                BUTTON_STYLE						      \
+                template: state						      \
           - type: grid							      \
             columns: 4							      \
             square: false						      \
@@ -87,7 +81,19 @@
                 padding: 0px;						      \
               }								      \
             entities:							      \
-              <<_zones>>
+              <<_zones>>						      \
+          - type: markdown						      \
+            content: >							      \
+              <center>Last run:						      \
+              {{as_timestamp(state_attr('automation.sprinkler_<<_area>>',     \
+                                        'last_triggered'))|		      \
+                timestamp_custom('%m/%d/%Y %I:%M %p')}}			      \
+              </center>							      \
+            style: |							      \
+              NO_SHADOW							      \
+              ha-markdown {						      \
+                padding: 0px !important;				      \
+              }
 
 #define ZONE_RUNTIME(_n)						      \
   - entity: input_number.sprinkler_zone_<<_n>>_run_time			      \
@@ -118,10 +124,51 @@ type: panel
 
 cards:
   - type: custom:layout-card
-    layout_type: horizontal
+    layout_type: grid
+    layout:
+      grid-template-areas: |
+        'top1 top2'
+        'left1 right1'
+        'left2 right2'
+      place-items: center
+      place-content: center
     cards:
-      AREA(Rear Lawn, rear_lawn, REAR_LAWN_ZONES)
-      AREA(Rear Planters, rear_planters, REAR_PLANTER_ZONES)
-      - type: custom:layout-break
-      AREA(Front Lawn, front_lawn, FRONT_LAWN_ZONES)
-      AREA(Front Planters, front_planters, FRONT_PLANTER_ZONES)
+      - type: conditional
+        conditions:
+          - entity: input_number.sprinkler_zone_running
+            state_not: '0.0'
+        view_layout:
+          grid-area: top1
+          place-self: center end
+        card:
+          type: markdown
+          content: >
+              <center>{{states('input_text.sprinkler_area')}} Zone
+                {{states('input_number.sprinkler_zone_running')|int - 1}}
+                running - {{relative_time(now() -
+                  (as_datetime(states('input_text.sprinkler_zone_end_time')) -
+                   now()))}} remaining
+              </center>
+          style: |
+            ha-card {
+              box-shadow: none;
+              background: rgb(0, 0, 0, 0);
+            }
+      - type: conditional
+        conditions:
+          - entity: input_number.sprinkler_zone_running
+            state_not: '0.0'
+        view_layout:
+          grid-area: top2
+          place-self: center start
+        card:
+          type: custom:button-card
+          name: Stop
+          tap_action:
+            action: call-service
+            service: script.stop_sprinklers
+
+      AREA(Rear Lawn, rear_lawn, REAR_LAWN_ZONES, left1)
+      AREA(Rear Planters, rear_planters, REAR_PLANTER_ZONES, right1)
+      AREA(Front Lawn, front_lawn, FRONT_LAWN_ZONES, left2)
+      AREA(Front Planters, front_planters, FRONT_PLANTER_ZONES, right2)
