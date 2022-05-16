@@ -27,7 +27,7 @@ while (<>)
     }
 
     next if m%^\s*//%;		# remove comment lines beginning with //
-    s%\s*//.*$%%;		# strip trailing comments
+    s%\s+//.*$%%;		# strip trailing comments
     s/[\r\n]+$//g;		# strip trailing cr/lf
 
     if (/^#endif/)		# handle endif
@@ -63,7 +63,7 @@ while (<>)
 	while (<>)
 	{
 	    next if m%^\s*//%;		# remove comment lines beginning with //
-	    s%\s*//.*$%%;		# strip trailing comments
+	    s%\s+//.*$%%;		# strip trailing comments
 	    s/[\r\n]+$//g;		# strip trailing cr/lf
 
 	    my $more = /\\$/;
