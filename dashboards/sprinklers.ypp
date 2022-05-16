@@ -123,61 +123,64 @@ title: Sprinklers
 type: panel
 
 cards:
-  - type: custom:layout-card
-    layout_type: grid
-    layout:
-      grid-template-areas: |
-        'top1 top2'
-        'left1 right1'
-        'left2 right2'
-      place-items: center
-      place-content: center
-      mediaquery:
-        "(max-width: 600px)":
-          grid-template-areas: |
-            'top1'
-            'top2'
-            'left1'
-            'right1'
-            'left2'
-            'right2'
-    cards:
-      - type: conditional
-        conditions:
-          - entity: input_number.sprinkler_zone_running
-            state_not: '0.0'
-        view_layout:
-          grid-area: top1
-          place-self: center end
-        card:
-          type: markdown
-          content: >
-              <center>{{states('input_text.sprinkler_area')}} Zone
-                {{states('input_number.sprinkler_zone_running')|int - 1}}
-                running - {{relative_time(now() -
-                  (as_datetime(states('input_text.sprinkler_zone_end_time')) -
-                   now()))}} remaining
-              </center>
-          style: |
-            ha-card {
-              box-shadow: none;
-              background: rgb(0, 0, 0, 0);
-            }
-      - type: conditional
-        conditions:
-          - entity: input_number.sprinkler_zone_running
-            state_not: '0.0'
-        view_layout:
-          grid-area: top2
-          place-self: center start
-        card:
-          type: custom:button-card
-          name: Stop
-          tap_action:
-            action: call-service
-            service: script.stop_sprinklers
+  - type: custom:restriction-card
+    action: double_tap
+    card:
+      type: custom:layout-card
+      layout_type: grid
+      layout:
+        grid-template-areas: |
+          'top1 top2'
+          'left1 right1'
+          'left2 right2'
+        place-items: center
+        place-content: center
+        mediaquery:
+          "(max-width: 600px)":
+            grid-template-areas: |
+              'top1'
+              'top2'
+              'left1'
+              'right1'
+              'left2'
+              'right2'
+      cards:
+        - type: conditional
+          conditions:
+            - entity: input_number.sprinkler_zone_running
+              state_not: '0.0'
+          view_layout:
+            grid-area: top1
+            place-self: center end
+          card:
+            type: markdown
+            content: >
+                <center>{{states('input_text.sprinkler_area')}} Zone
+                  {{states('input_number.sprinkler_zone_running')|int - 1}}
+                  running - {{relative_time(now() -
+                    (as_datetime(states('input_text.sprinkler_zone_end_time')) -
+                     now()))}} remaining
+                </center>
+            style: |
+              ha-card {
+                box-shadow: none;
+                background: rgb(0, 0, 0, 0);
+              }
+        - type: conditional
+          conditions:
+            - entity: input_number.sprinkler_zone_running
+              state_not: '0.0'
+          view_layout:
+            grid-area: top2
+            place-self: center start
+          card:
+            type: custom:button-card
+            name: Stop
+            tap_action:
+              action: call-service
+              service: script.stop_sprinklers
 
-      AREA(Rear Lawn, rear_lawn, REAR_LAWN_ZONES, left1)
-      AREA(Rear Planters, rear_planters, REAR_PLANTER_ZONES, right1)
-      AREA(Front Lawn, front_lawn, FRONT_LAWN_ZONES, left2)
-      AREA(Front Planters, front_planters, FRONT_PLANTER_ZONES, right2)
+        AREA(Rear Lawn, rear_lawn, REAR_LAWN_ZONES, left1)
+        AREA(Rear Planters, rear_planters, REAR_PLANTER_ZONES, right1)
+        AREA(Front Lawn, front_lawn, FRONT_LAWN_ZONES, left2)
+        AREA(Front Planters, front_planters, FRONT_PLANTER_ZONES, right2)
