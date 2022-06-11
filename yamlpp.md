@@ -170,18 +170,18 @@ FOO macro parameter _b = dewey
 
 ##### Sequenced macros
 
-A macro invocation with a single parameter of the form `n..n` will be
+A macro invocation with the first parameter of the form `n..n` will be
 expanded as if there were multiple invocations for each digit in the range
 from n to n.
 <pre>
-FOO(1..4)
+FOO(1..4, arg1, arg2)
 </pre>
 is equivalent to
 <pre>
-FOO(1)
-FOO(2)
-FOO(3)
-FOO(4)
+FOO(1, arg1, arg2)
+FOO(2, arg1, arg2)
+FOO(3, arg1, arg2)
+FOO(4, arg1, arg2)
 </pre>
 
 ### Perl expression evaluation

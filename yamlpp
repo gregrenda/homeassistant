@@ -133,11 +133,12 @@ sub expand
 	    my $indent = $1;
 	    my @args = split /\s*,\s*/, $3;
 
-	    # repeat define if single arg is of the form n..n
-	    if (@args == 1 and $args[0] =~ /^(\d+)\.\.(\d+)$/)
+	    # repeat define if first arg is of the form n..n
+	    if ($args[0] =~ /^(\d+)\.\.(\d+)$/)
 	    {
 		my @out;
-		push @out, expandDefine($def, $indent, [ $_ ]) for $1..$2;
+		shift @args;
+		push @out, expandDefine($def, $indent, [ $_, @args ]) for $1..$2;
 		return @out;
 	    }
 	    else
