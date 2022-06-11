@@ -131,11 +131,6 @@ script:
     variables:
       areas: AREAS
     sequence:
-      - service: input_text.set_value
-        target:
-          entity_id: input_text.sprinkler_area
-        data:
-          value: "{{ areas[area] }}"
       - repeat:
           count: "{{ zones|length }}"
           sequence:
@@ -149,11 +144,11 @@ script:
                 entity_id: input_text.sprinkler_zone_end_time
               data:
                 value: "{{ now() + timedelta(minutes = run_time) }}"
-            - service: script.sprinkler_command
+            - service: script.start_sprinkler
               data:
-                cmd: "{{zone}}"
-            - delay: "{{ '00:' ~ run_time ~ ':00' }}"
-//            - delay: "{{ '00:00:' ~ 1 }}"  // for testing
+                area: "{{areas[area]}}"
+                zone: "{{zone}}"
+                run_time: "{{run_time}}"
       - service: input_text.set_value
         target:
           entity_id: "{{'input_text.sprinkler_next_area_' ~ area}}"
@@ -169,11 +164,42 @@ script:
               {% endif %}
             {% endfor %}
             {{ns.next}}
+  start_sprinkler:
+    sequence:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.sprinkler_area
+        data:
+          value: "{{area}}"
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.sprinkler_zone_end_time
+        data:
+          value: "{{ now() + timedelta(minutes = run_time) }}"
+      - service: script.sprinkler_command
+        data:
+          cmd: "{{zone}}"
+      - delay: "{{ '00:' ~ run_time ~ ':00' }}"
+//      - delay: "{{ '00:00:' ~ 5 }}"  // for testing
+  start_sprinkler_single:
+    sequence:
+      - condition: "{{ run_time > 0 }}"
+      - service: script.start_sprinkler
+        data:
+          area: "{{area}}"
+          zone: "{{zone}}"
+          run_time: "{{run_time}}"
+      - service: script.sprinkler_command
+        data:
+          cmd: "off"
   stop_sprinklers:
     sequence:
       - service: script.turn_off
         data:
           entity_id: script.start_sprinkler_area
+      - service: script.turn_off
+        data:
+          entity_id: script.start_sprinkler
       - service: script.sprinkler_command
         data:
           cmd: "off"

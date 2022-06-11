@@ -47,10 +47,6 @@ on.  Sending the command 'off' will turn off all valves.  The hostname and
 port for the UDP interface are set using the SPRINKER_HOST and SPRINKLER_PORT
 macros.
 
-### Todo
-
-- Individual zone control
-
 ## License
 
 _Licensed under the MIT License, Copyright (c) 2022 Greg Renda_
