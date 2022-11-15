@@ -1,15 +1,20 @@
 # -*-YAML-*-
 
+#define PLAIN								      \
+  ha-card {								      \
+    border-width: 0px;							      \
+    background: none;							      \
+  }
+
+#define NO_BACKGROUND							      \
+  style: |								      \
+    PLAIN
+
 #define DAY(_name, _area)						      \
   - type: custom:button-card						      \
     name: <<_name>>							      \
-    entity: input_boolean.sprinkler_<<_area>>_((lc '<<_name>>'))	      \
+    entity: input_boolean.sprinkler_<<_area>>_(|lc '<<_name>>'|)	      \
     template: state
-
-#define NO_SHADOW							      \
-    ha-card {								      \
-      box-shadow: none;							      \
-    }
 
 #define AREA(_title, _area, _zones, _grid_area)				      \
   - type: entities							      \
@@ -24,7 +29,7 @@
           - type: markdown						      \
             content: '## <center><<_title>></center>'			      \
             style: |							      \
-              NO_SHADOW							      \
+              PLAIN							      \
               ha-markdown {						      \
                 padding: 0px !important;				      \
               }								      \
@@ -85,7 +90,7 @@
                 timestamp_custom('%m/%d/%Y %I:%M %p')}}			      \
               </center>							      \
             style: |							      \
-              NO_SHADOW							      \
+              PLAIN							      \
               ha-markdown {						      \
                 padding: 0px !important;				      \
               }
@@ -112,6 +117,7 @@
     cards:								      \
       - type: custom:button-card					      \
         name: Zone <<_n>>						      \
+        NO_BACKGROUND							      \
         tap_action:							      \
           action: call-service						      \
           service: script.start_sprinkler_single			      \
@@ -128,6 +134,7 @@
         label: '[[[ return parseInt(entity.state) + "m"; ]]]'		      \
         variables:							      \
           off_color: var(--paper-item-off-color)			      \
+        NO_BACKGROUND							      \
         styles:								      \
           card:								      \
             - background-color: >					      \
@@ -159,7 +166,6 @@
 #define FRONT_PLANTERS_ZONES						      \
   ZONE_RUNTIME(10..11, Front Planters)
 
-title: Sprinklers
 type: panel
 
 cards:
@@ -201,11 +207,7 @@ cards:
                     (as_datetime(states('input_text.sprinkler_zone_end_time')) -
                      now()))}} remaining
                 </center>
-            style: |
-              ha-card {
-                box-shadow: none;
-                background: rgb(0, 0, 0, 0);
-              }
+            NO_BACKGROUND
         - type: conditional
           conditions:
             - entity: input_number.sprinkler_zone_running
@@ -219,6 +221,10 @@ cards:
             tap_action:
               action: call-service
               service: script.stop_sprinklers
+            styles:
+              card:
+                - border-radius: 5px
+                - margin: 10px
 
         AREA(Rear Lawn, rear_lawn, REAR_LAWN_ZONES, left1)
         AREA(Rear Planters, rear_planters, REAR_PLANTERS_ZONES, right1)

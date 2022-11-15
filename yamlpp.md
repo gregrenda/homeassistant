@@ -10,6 +10,8 @@ Features:
 - line splicing
 - `#if / #endif` directives
 - `#define` macros with and without parameters
+- `#undef`
+- `#include`
 - Perl expression evaluation
 
 ## Usage
@@ -184,14 +186,48 @@ FOO(3, arg1, arg2)
 FOO(4, arg1, arg2)
 </pre>
 
+##### Undefining a macro
+
+A macro may be undefined using the `#undef` directive
+<pre>
+#undef FOO
+</pre>
+
+### Include files
+
+A file may be included using the `#include` directive.  The included file
+will be indented by the number of spaces preceding the `#` in the directive.
+Included files may contain `#include` directives.
+
+Given the file `foo`
+<pre>
+line 1
+line 2
+line 3
+</pre>
+the directives
+<pre>
+#include foo
+    #include foo
+</pre>
+will be output as
+<pre>
+line 1
+line 2
+line 3
+    line 1
+    line 2
+    line 3
+</pre>
+
 ### Perl expression evaluation
 
-The construct `((expression))` will be replaced with the results of the
+The construct `(|expression|)` will be replaced with the results of the
 Perl evaluation of the expression.
 
 <pre>
-some math: 2 + 2 = ((2 + 2))
-some string manipulation: ((lc 'This Is All Lower Case'))
+some math: 2 + 2 = (|2 + 2|)
+some string manipulation: (|lc 'This Is All Lower Case'|)
 </pre>
 will be output as
 <pre>

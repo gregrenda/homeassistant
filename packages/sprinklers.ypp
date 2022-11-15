@@ -69,7 +69,7 @@ input_text:
 #define DAY_COND(_area, _day)						      \
   - >									      \
     {{ states('sensor.template_weekday') == '<<_day>>' and		      \
-       is_state('input_boolean.sprinkler_<<_area>>_((lc substr '<<_day>>', 0, 3))', 'on') }}
+       is_state('input_boolean.sprinkler_<<_area>>_(|lc substr '<<_day>>', 0, 3|)', 'on') }}
 
 #define SPRINKLER_AUTOMATION(_area, _zones)				      \
   - alias: sprinkler_<<_area>>						      \
